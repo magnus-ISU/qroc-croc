@@ -1,0 +1,45 @@
+#!/bin/bash
+
+usage() {
+	echo qroc - send files with QR code convenience
+	printf '\tUsage: ' ; echo 'qroc file_to_send' | lolcat
+	echo -e '\tThen open a QR scanner on your phone and copy the text of the QR code.'
+	echo -e '\tFinally, open croc on your phone - the code is in your clipboard!'
+}
+
+[[ $# = 1 ]] || {
+	usage
+	exit 1
+}
+
+string_file=/tmp/qroc_string
+image_file=/tmp/qroc_img.png
+
+rm -f "$string_file"
+
+croc send "$1" 2>&1 \
+	| rg --line-buffered 'Code is' \
+	| head -n 1 \
+	| awk '{print $3}' > "$string_file" &
+
+croc_pid=$!
+
+while ! grep '-' "$string_file" >/dev/null ; do
+  sleep 0.1
+done
+
+lolcat "$string_file"
+
+qrencode -o - "$(<$string_file)" > "$image_file"
+nsxiv -s f "$image_file" &
+
+img_pid=$!
+
+wait `jobs -p | head -n 1`
+
+echo Yay!
+
+kill "$img_pid"
+
+rm -f "$string_file"
+rm -f "$image_file"
