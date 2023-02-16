@@ -1,8 +1,16 @@
 #!/bin/bash
 
+cecho() {
+	type lolcat >/dev/null && {
+		echo -e "$@" | lolcat
+	} || {
+		echo -e "\x1b[31m$@\x1b[0m"
+	}
+}
+
 usage() {
-	echo qroc - send files with QR code convenience
-	printf '\tUsage: ' ; echo 'qroc file_to_send' | lolcat
+	echo qroc - send files a with QR code convenience
+	printf '\tUsage: ' ; cecho 'qroc file_to_send'
 	echo -e '\tThen open a QR scanner on your phone and copy the text of the QR code.'
 	echo -e '\tFinally, open croc on your phone - the code is in your clipboard!'
 }
@@ -12,48 +20,7 @@ usage() {
 	exit 1
 }
 
-string_file=/tmp/qroc_string
-image_file=/tmp/qroc_img.png
+code=`mktemp -u XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
 
-rm -f "$string_file"
-
-cleanup() {
-	echo
-	echo Exiting... cleaning up
-	[[ -z "$croc_pid" ]] || kill "$croc_pid"
-	[[ -z "$img_pid" ]] || kill "$img_pid"
-	rm -f "$string_file"
-	rm -f "$img_file"
-}
-
-croc_pid=
-img_pid=
-trap cleanup EXIT
-
-
-croc send "$1" 2>&1 \
-	| rg --line-buffered 'Code is' \
-	| head -n 1 \
-	| awk '{print $3}' > "$string_file" &
-
-croc_pid=`jobs -p | head -n 1`
-
-while ! grep '-' "$string_file" >/dev/null ; do
-  sleep 0.1
-done
-
-lolcat "$string_file"
-
-qrencode -o - "$(<$string_file)" > "$image_file"
-nsxiv -s f "$image_file" &
-
-img_pid=$!
-
-wait "$croc_pid"
-
-echo Yay!
-
-kill "$img_pid"
-
-rm -f "$string_file"
-rm -f "$image_file"
+qrencode -t utf8 "$code"
+croc send --code "$code" "$1"
