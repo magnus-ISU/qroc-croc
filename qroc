@@ -17,12 +17,26 @@ image_file=/tmp/qroc_img.png
 
 rm -f "$string_file"
 
+cleanup() {
+	echo
+	echo Exiting... cleaning up
+	[[ -z "$croc_pid" ]] || kill "$croc_pid"
+	[[ -z "$img_pid" ]] || kill "$img_pid"
+	rm -f "$string_file"
+	rm -f "$img_file"
+}
+
+croc_pid=
+img_pid=
+trap cleanup EXIT
+
+
 croc send "$1" 2>&1 \
 	| rg --line-buffered 'Code is' \
 	| head -n 1 \
 	| awk '{print $3}' > "$string_file" &
 
-croc_pid=$!
+croc_pid=`jobs -p | head -n 1`
 
 while ! grep '-' "$string_file" >/dev/null ; do
   sleep 0.1
@@ -35,7 +49,7 @@ nsxiv -s f "$image_file" &
 
 img_pid=$!
 
-wait `jobs -p | head -n 1`
+wait "$croc_pid"
 
 echo Yay!
 
